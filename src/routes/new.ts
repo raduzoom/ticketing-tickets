@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
-import { requireAuth, validateRequest } from '@mytuts/common';
+import { requireAuth, currentUser, validateRequest } from '@mytuts/common';
 import { Ticket } from '../models/ticket';
 
 const router = express.Router();
@@ -11,7 +11,7 @@ export interface Req extends Request {
 }
 router.post(
   '/api/tickets',
-  requireAuth,
+  currentUser,
   [
     body('title').not().isEmpty().withMessage('Title is required'),
     body('price')
@@ -21,7 +21,7 @@ router.post(
   validateRequest,
   async (req: Req, res: Response) => {
     const { title, price } = req.body;
-    console.log('req - ', req);
+    console.log('req - ', req.session);
 
     const ticket = Ticket.build({
       title,
