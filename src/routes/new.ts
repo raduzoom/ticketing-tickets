@@ -1,17 +1,15 @@
 import express, { Request, Response } from 'express';
 import { body } from 'express-validator';
-import { requireAuth, currentUser, validateRequest } from '@mytuts/common';
+import { requireAuth, validateRequest } from '@cygnetops/common';
 import { Ticket } from '../models/ticket';
+import { TicketCreatedPublisher } from '../events/publishers/ticket-created-publisher';
+import { natsWrapper } from '../nats-wrapper';
 
 const router = express.Router();
-export interface Req extends Request {
-  params: any;
-  currentUser?: any;
-  body: any;
-}
+
 router.post(
   '/api/tickets',
-  currentUser,
+  requireAuth,
   [
     body('title').not().isEmpty().withMessage('Title is required'),
     body('price')
@@ -19,9 +17,8 @@ router.post(
       .withMessage('Price must be greater than 0'),
   ],
   validateRequest,
-  async (req: Req, res: Response) => {
+  async (req: Request, res: Response) => {
     const { title, price } = req.body;
-    console.log('req - ', req.session);
 
     const ticket = Ticket.build({
       title,
@@ -29,6 +26,12 @@ router.post(
       userId: req.currentUser!.id,
     });
     await ticket.save();
+    await new TicketCreatedPublisher(natsWrapper.client).publish({
+      id: ticket.id,
+      title: ticket.title,
+      price: ticket.price,
+      userId: ticket.userId,
+    });
 
     res.status(201).send(ticket);
   }
